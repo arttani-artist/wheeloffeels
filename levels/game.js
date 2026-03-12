@@ -1,8 +1,10 @@
 const canvas = document.getElementById("game")
 const ctx = canvas.getContext("2d")
+
+const tileSize = 64
+
 const playerSprite = new Image()
 playerSprite.src = "player.png"
-const tileSize = 64
 
 let player = {
 x:2,
@@ -64,10 +66,21 @@ drawTile(x,y,level1[y][x])
 function drawPlayer(){
 
 ctx.fillStyle = emotionColors[player.emotion]
+ctx.globalAlpha = 0.35
 
 ctx.fillRect(
-player.x*tileSize + 16,
-player.y*tileSize + 16,
+player.x*tileSize+8,
+player.y*tileSize+8,
+48,
+48
+)
+
+ctx.globalAlpha = 1
+
+ctx.drawImage(
+playerSprite,
+player.x*tileSize+16,
+player.y*tileSize+16,
 32,
 32
 )
@@ -85,7 +98,6 @@ if(tile === 6) player.emotion = "fear"
 
 }
 
-let speed = 1
 function move(dx,dy){
 
 let multiplier = 1
@@ -95,7 +107,7 @@ if(player.emotion === "joy") multiplier = 2
 let newX = player.x + dx * multiplier
 let newY = player.y + dy * multiplier
 
-if(map[newY] && map[newY][newX] !== 1){
+if(level1[newY] && level1[newY][newX] !== 1){
 
 player.x=newX
 player.y=newY
@@ -105,7 +117,6 @@ checkEmotion()
 }
 
 }
-
 
 document.addEventListener("keydown", e => {
 
@@ -121,28 +132,7 @@ function gameLoop(){
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
 drawMap()
-ctx.fillStyle = emotionColors[player.emotion]
-ctx.globalAlpha = 0.35
-
-ctx.fillRect(
-player.x*tileSize+8,
-player.y*tileSize+8,
-48,
-48
-)
-
-ctx.globalAlpha = 1
-function drawPlayer(){
-
-ctx.drawImage(
-playerSprite,
-player.x*tileSize+16,
-player.y*tileSize+16,
-32,
-32
-)
-
-}
+drawPlayer()
 
 requestAnimationFrame(gameLoop)
 
