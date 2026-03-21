@@ -1,6 +1,5 @@
 const canvas = document.getElementById("game")
 const ctx = canvas.getContext("2d")
-
 const menu = document.getElementById("menu")
 
 const tileSize = 64
@@ -8,32 +7,65 @@ const tileSize = 64
 let gameRunning = false
 
 function startGame(){
-
 menu.style.display = "none"
 canvas.style.display = "block"
-
+loadGame()
 gameRunning = true
 gameLoop()
+}
+
+//////////////////////
+// ROOMS
+//////////////////////
+
+const rooms = {
+
+hub: [
+[1,1,1,1,1,1,1,1],
+[1,0,0,2,0,0,9,1],
+[1,0,0,0,0,0,0,1],
+[1,3,0,0,4,0,5,1],
+[1,0,0,0,0,0,0,1],
+[1,0,0,0,6,0,0,1],
+[1,9,0,0,0,0,9,1],
+[1,1,1,1,1,1,1,1]
+],
+
+joy: [
+[1,1,1,1,1,1,1,1],
+[1,0,0,0,0,0,9,1],
+[1,0,1,1,1,0,0,1],
+[1,0,0,0,1,0,0,1],
+[1,0,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,1],
+[1,9,0,0,0,0,0,1],
+[1,1,1,1,1,1,1,1]
+],
+
+anger: [
+[1,1,1,1,1,1,1,1],
+[1,0,0,7,0,0,9,1],
+[1,0,1,1,1,0,0,1],
+[1,0,0,0,1,0,0,1],
+[1,0,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,1],
+[1,9,0,0,0,0,0,1],
+[1,1,1,1,1,1,1,1]
+]
 
 }
 
-const level = [
+let currentRoom = "hub"
 
-[1,1,1,1,1,1,1,1],
-[1,0,0,2,0,0,0,1],
-[1,0,0,0,0,3,0,1],
-[1,0,0,0,0,0,0,1],
-[1,4,0,0,5,0,0,1],
-[1,0,0,0,0,0,0,1],
-[1,0,6,0,0,0,0,1],
-[1,1,1,1,1,1,1,1]
-
-]
+//////////////////////
+// PLAYER
+//////////////////////
 
 let player = {
 x:2,
 y:2,
-emotion:"neutral"
+emotion:"neutral",
+blend:null
 }
 
 const emotions = {
@@ -51,30 +83,55 @@ fear:false,
 trust:false
 }
 
+//////////////////////
+// NPC (trust)
+//////////////////////
+
+let npc = {
+x:4,
+y:4,
+active:false
+}
+
+//////////////////////
+// DRAW
+//////////////////////
+
 function drawTile(x,y,type){
 
+// wall
 if(type===1){
 ctx.fillStyle="#444"
 ctx.fillRect(x*tileSize,y*tileSize,tileSize,tileSize)
 }
 
-if(type===2){
-ctx.fillStyle="#ffd93b"
+// door
+if(type===9){
+ctx.fillStyle="#999"
 ctx.fillRect(x*tileSize,y*tileSize,tileSize,tileSize)
 }
 
-if(type===3){
-ctx.fillStyle="#ff3b3b"
-ctx.fillRect(x*tileSize,y*tileSize,tileSize,tileSize)
-}
-
-if(type===5){
-ctx.fillStyle="#3bff8a"
-ctx.fillRect(x*tileSize,y*tileSize,tileSize,tileSize)
-}
-
-if(type===6){
+// hidden tile (fear)
+if(type===8){
+if(player.emotion==="fear"){
 ctx.fillStyle="#3b6aff"
+ctx.fillRect(x*tileSize,y*tileSize,tileSize,tileSize)
+}
+}
+
+// push block
+if(type===7){
+ctx.fillStyle="#aa3333"
+ctx.fillRect(x*tileSize,y*tileSize,tileSize,tileSize)
+}
+
+// emotion tiles
+if(type===2) ctx.fillStyle="#ffd93b"
+if(type===3) ctx.fillStyle="#ff3b3b"
+if(type===5) ctx.fillStyle="#3bff8a"
+if(type===6) ctx.fillStyle="#3b6aff"
+
+if([2,3,5,6].includes(type)){
 ctx.fillRect(x*tileSize,y*tileSize,tileSize,tileSize)
 }
 
@@ -82,14 +139,12 @@ ctx.fillRect(x*tileSize,y*tileSize,tileSize,tileSize)
 
 function drawMap(){
 
-for(let y=0;y<level.length;y++){
+let map = rooms[currentRoom]
 
-for(let x=0;x<level[y].length;x++){
-
-drawTile(x,y,level[y][x])
-
+for(let y=0;y<map.length;y++){
+for(let x=0;x<map[y].length;x++){
+drawTile(x,y,map[y][x])
 }
-
 }
 
 }
@@ -97,73 +152,104 @@ drawTile(x,y,level[y][x])
 function drawPlayer(){
 
 ctx.fillStyle = emotions[player.emotion]
-ctx.globalAlpha = 0.35
+ctx.globalAlpha = 0.3
 
-ctx.fillRect(
-player.x*tileSize+8,
-player.y*tileSize+8,
-48,
-48
-)
+ctx.fillRect(player.x*tileSize+8,player.y*tileSize+8,48,48)
 
 ctx.globalAlpha = 1
 
 ctx.fillStyle = emotions[player.emotion]
-
-ctx.fillRect(
-player.x*tileSize+20,
-player.y*tileSize+20,
-24,
-24
-)
+ctx.fillRect(player.x*tileSize+20,player.y*tileSize+20,24,24)
 
 }
 
-function checkEmotion(){
-
-let tile = level[player.y][player.x]
-
-if(tile===2){
-player.emotion="joy"
-discovered.joy=true
+function drawNPC(){
+if(npc.active){
+ctx.fillStyle="#3bff8a"
+ctx.fillRect(npc.x*tileSize+20,npc.y*tileSize+20,24,24)
+}
 }
 
-if(tile===3){
-player.emotion="anger"
-discovered.anger=true
+//////////////////////
+// LOGIC
+//////////////////////
+
+function checkTile(){
+
+let map = rooms[currentRoom]
+let tile = map[player.y][player.x]
+
+// emotions
+if(tile===2){player.emotion="joy"; discovered.joy=true}
+if(tile===3){player.emotion="anger"; discovered.anger=true}
+if(tile===5){player.emotion="trust"; discovered.trust=true}
+if(tile===6){player.emotion="fear"; discovered.fear=true}
+
+// door
+if(tile===9){
+if(currentRoom==="hub") currentRoom="joy"
+else currentRoom="hub"
+
+player.x=2
+player.y=2
 }
 
-if(tile===5){
-player.emotion="trust"
-discovered.trust=true
+// trust NPC
+npc.active = (player.emotion==="trust")
+
+saveGame()
+
 }
 
-if(tile===6){
-player.emotion="fear"
-discovered.fear=true
+function tryPush(x,y,dx,dy){
+let map = rooms[currentRoom]
+
+if(map[y][x]===7 && player.emotion==="anger"){
+let nextX = x+dx
+let nextY = y+dy
+
+if(map[nextY][nextX]===0){
+map[nextY][nextX]=7
+map[y][x]=0
+return true
+}
 }
 
+return false
 }
 
 function move(dx,dy){
 
-let speed = 1
+let map = rooms[currentRoom]
 
-if(player.emotion==="joy") speed = 2
+let speed = player.emotion==="joy" ? 2 : 1
 
-let newX = player.x + dx * speed
-let newY = player.y + dy * speed
+for(let i=0;i<speed;i++){
 
-if(level[newY] && level[newY][newX] !== 1){
+let nx = player.x + dx
+let ny = player.y + dy
 
-player.x=newX
-player.y=newY
+if(!map[ny]) return
 
-checkEmotion()
+if(map[ny][nx]===1) return
+
+// push block
+if(map[ny][nx]===7){
+if(!tryPush(nx,ny,dx,dy)) return
+}
+
+player.x = nx
+player.y = ny
+
+checkTile()
 
 }
 
 }
+
+//////////////////////
+// INPUT
+//////////////////////
 
 document.addEventListener("keydown",e=>{
 
@@ -176,51 +262,67 @@ if(e.key==="ArrowRight") move(1,0)
 
 })
 
-function drawEmotionWheel(){
+//////////////////////
+// SAVE SYSTEM
+//////////////////////
 
-let cx = 560
-let cy = 80
-let r = 50
+function saveGame(){
+localStorage.setItem("plutchikSave", JSON.stringify({
+player,
+discovered,
+currentRoom
+}))
+}
 
-let list = ["joy","trust","fear","anger"]
+function loadGame(){
+let data = localStorage.getItem("plutchikSave")
+if(data){
+let save = JSON.parse(data)
+player = save.player
+discovered = save.discovered
+currentRoom = save.currentRoom
+}
+}
+
+//////////////////////
+// HUD
+//////////////////////
+
+function drawWheel(){
+
+let cx=560, cy=80, r=50
+let list=["joy","trust","fear","anger"]
 
 for(let i=0;i<4;i++){
+let angle=(Math.PI*2/4)*i
+let x=cx+Math.cos(angle)*r
+let y=cy+Math.sin(angle)*r
 
-let angle = (Math.PI*2/4)*i
-
-let x = cx + Math.cos(angle)*r
-let y = cy + Math.sin(angle)*r
-
-if(discovered[list[i]]){
-ctx.fillStyle = emotions[list[i]]
-}else{
-ctx.fillStyle = "#333"
-}
+ctx.fillStyle = discovered[list[i]] ? emotions[list[i]] : "#333"
 
 ctx.beginPath()
 ctx.arc(x,y,12,0,Math.PI*2)
 ctx.fill()
-
 }
 
 }
 
 function drawHUD(){
-
 ctx.fillStyle="white"
-ctx.font="16px monospace"
-
-ctx.fillText("emotion: "+player.emotion,20,30)
-
-drawEmotionWheel()
-
+ctx.fillText("emotion: "+player.emotion,20,20)
+drawWheel()
 }
+
+//////////////////////
+// LOOP
+//////////////////////
 
 function gameLoop(){
 
 ctx.clearRect(0,0,640,640)
 
 drawMap()
+drawNPC()
 drawPlayer()
 drawHUD()
 
